@@ -26,30 +26,27 @@ function resolveRemoteUrl(raw) {
 const remoteUrl = resolveRemoteUrl(process.env.TRON_USDT_MCP_URL);
 const apiKey = process.env.TRON_USDT_API_KEY?.trim() || null;
 
-let remotePromise = null;
-
-function connectRemote() {
-  if (!remotePromise) {
-    remotePromise = (async () => {
-      const client = new Client({ name: "tron-usdt-mcp-proxy", version: VERSION });
-      const transport = new StreamableHTTPClientTransport(remoteUrl, {
-        requestInit: { headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {} },
-      });
-      await client.connect(transport);
-      return client;
-    })().catch((error) => {
-      remotePromise = null;
-      throw error;
-    });
+/**
+ * Opens a fresh client for one call. The remote is stateless, so per-call clients cost
+ * one extra initialize round trip and keep calls isolated: one call's error, rate limit
+ * or cancellation never tears down another call's connection.
+ */
+async function withRemote(signal, fn) {
+  const client = new Client({ name: "tron-usdt-mcp-proxy", version: VERSION });
+  const transport = new StreamableHTTPClientTransport(remoteUrl, {
+    requestInit: { headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {} },
+  });
+  const onAbort = () => {
+    void client.close().catch(() => undefined);
+  };
+  signal?.addEventListener("abort", onAbort, { once: true });
+  try {
+    await client.connect(transport, { signal });
+    return await fn(client);
+  } finally {
+    signal?.removeEventListener("abort", onAbort);
+    await client.close().catch(() => undefined);
   }
-  return remotePromise;
-}
-
-/** Drops the cached remote client (closing it) so the next call reconnects. */
-function resetRemote() {
-  const stale = remotePromise;
-  remotePromise = null;
-  stale?.then((client) => client.close()).catch(() => undefined);
 }
 
 function toolError(code, message, retryable) {
@@ -76,9 +73,13 @@ function remoteFailure(error) {
   }
   if (status === 504) {
     // A paid call that ran out of time is not charged, but don't auto-retry a paid call blindly.
-    return toolError("REMOTE_TIMEOUT", "The remote server timed out. Unfinished paid calls are not charged.", false);
+    return toolError(
+      "REMOTE_TIMEOUT",
+      "The remote server timed out. An unfinished paid call is not settled unless settlement had already started; check before paying again.",
+      false,
+    );
   }
-  return toolError("REMOTE_UNAVAILABLE", `Could not reach ${remoteUrl.origin}: ${errorMessage(error)}`, true);
+  return toolError("REMOTE_UNAVAILABLE", `Remote call to ${remoteUrl.origin} failed: ${errorMessage(error)}`, true);
 }
 
 const server = new Server(
@@ -92,12 +93,10 @@ const server = new Server(
   },
 );
 
-server.setRequestHandler(ListToolsRequestSchema, async (request) => {
+server.setRequestHandler(ListToolsRequestSchema, async (request, extra) => {
   try {
-    const remote = await connectRemote();
-    return await remote.listTools(request.params);
+    return await withRemote(extra.signal, (remote) => remote.listTools(request.params, { signal: extra.signal }));
   } catch (error) {
-    resetRemote();
     const failure = remoteFailure(error);
     throw new McpError(ErrorCode.InternalError, failure.structuredContent.error.message);
   }
@@ -105,12 +104,12 @@ server.setRequestHandler(ListToolsRequestSchema, async (request) => {
 
 server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
   try {
-    const remote = await connectRemote();
-    // Forward params as-is so _meta (x402 payments) reaches the remote server; pass
-    // the client's cancellation through. The remote never settles a call it did not finish.
-    return await remote.callTool(request.params, undefined, { signal: extra.signal });
+    // Forward params as-is so _meta (x402 payments) reaches the remote server. A client
+    // cancel aborts only this call's HTTP request; the remote then skips settlement.
+    return await withRemote(extra.signal, (remote) =>
+      remote.callTool(request.params, undefined, { signal: extra.signal }),
+    );
   } catch (error) {
-    resetRemote();
     return remoteFailure(error);
   }
 });
