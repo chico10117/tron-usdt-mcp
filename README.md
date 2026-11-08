@@ -14,7 +14,7 @@ This package is a small stdio proxy. All the work happens on the hosted server a
 
 Each tool takes one input: `{ "address": "T..." }`. Only send public TRON addresses. Never send seed phrases or private keys.
 
-Failed calls are never charged.
+Failed paid calls are never charged. Each signed x402 payment pays for one call. A failed free check still counts toward the daily limit.
 
 ## Paying for the paid tools
 
@@ -49,7 +49,9 @@ Any client that takes a JSON config:
 }
 ```
 
-Leave out `headers` to use only the free tool, or to pay per call with x402.
+Leave out `headers` to use only the free tool, or to pay per call with x402. A wrong key gets HTTP 403 on every request, so remove the header rather than leaving a bad key in place.
+
+The server takes one JSON-RPC message per request (no batching). Limits: 60 requests a minute and 50 free checks a day, counted per API-key user, or per IP address when there's no key. Hosted clients that share an IP address also share those limits, so add an API key to get your own.
 
 ### Local stdio (this package)
 
@@ -67,7 +69,7 @@ Leave out `headers` to use only the free tool, or to pay per call with x402.
 
 | Variable | Required | Default |
 |---|---|---|
-| `TRON_USDT_API_KEY` | No | Not set: free tool plus x402 only |
+| `TRON_USDT_API_KEY` | No | Not set: free tool plus x402 only. A wrong key blocks every tool, including the free one (`INVALID_API_KEY`) |
 | `TRON_USDT_MCP_URL` | No | `https://usdt.chikocorp.com/mcp` (https only; http only for localhost) |
 
 ### Docker

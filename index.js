@@ -6,7 +6,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError } from "@modelcontextprotocol/sdk/types.js";
 
 const VERSION = "1.0.0";
 const DEFAULT_URL = "https://usdt.chikocorp.com/mcp";
@@ -45,13 +45,30 @@ function connectRemote() {
   return remotePromise;
 }
 
-function unavailable(message) {
-  const body = { error: { code: "REMOTE_UNAVAILABLE", message, retryable: true } };
+function toolError(code, message, retryable) {
+  const body = { error: { code, message, retryable } };
   return { isError: true, content: [{ type: "text", text: JSON.stringify(body) }], structuredContent: body };
 }
 
 function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+// The remote answers 403 for a wrong or under-scoped API key, and 401 is treated the same.
+function isAuthError(error) {
+  const code = error?.code;
+  return code === 401 || code === 403 || /\b(401|403)\b/.test(errorMessage(error));
+}
+
+function remoteFailure(error) {
+  if (isAuthError(error)) {
+    return toolError(
+      "INVALID_API_KEY",
+      "The remote server rejected TRON_USDT_API_KEY (wrong key or missing screen:write scope). Fix it or unset it to use the free tool and x402.",
+      false,
+    );
+  }
+  return toolError("REMOTE_UNAVAILABLE", `Could not reach ${remoteUrl.origin}: ${errorMessage(error)}`, true);
 }
 
 const server = new Server(
@@ -61,28 +78,29 @@ const server = new Server(
     instructions:
       "Screens public TRON addresses for USDT (TRC20) risk. Only send public T-addresses, never seed phrases or private keys. "
       + "check_tron_usdt_blacklist is free. screen_tron_address and tron_usdt_aml_report are paid: set TRON_USDT_API_KEY "
-      + "(1 credit per call) or pay per call with x402 via _meta[\"x402/payment\"]. Failed calls are never charged.",
+      + "(1 credit per call) or pay per call with x402 via _meta[\"x402/payment\"]. Failed paid calls are never charged.",
   },
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async (request) => {
-  const remote = await connectRemote();
-  return remote.listTools(request.params);
+  try {
+    const remote = await connectRemote();
+    return await remote.listTools(request.params);
+  } catch (error) {
+    remotePromise = null;
+    const failure = remoteFailure(error);
+    throw new McpError(ErrorCode.InternalError, failure.structuredContent.error.message);
+  }
 });
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  let remote;
   try {
-    remote = await connectRemote();
-  } catch (error) {
-    return unavailable(`Could not reach ${remoteUrl.origin}: ${errorMessage(error)}`);
-  }
-  try {
+    const remote = await connectRemote();
     // Forward params as-is so _meta (x402 payments) reaches the remote server.
     return await remote.callTool(request.params);
   } catch (error) {
     remotePromise = null;
-    return unavailable(`Remote call failed: ${errorMessage(error)}`);
+    return remoteFailure(error);
   }
 });
 

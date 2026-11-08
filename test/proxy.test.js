@@ -30,6 +30,11 @@ function buildRemote() {
 before(async () => {
   httpServer = createServer(async (req, res) => {
     seen.authorization.push(req.headers.authorization ?? null);
+    if (req.headers.authorization === "Bearer bad") {
+      res.writeHead(403, { "content-type": "application/json" });
+      res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32000, message: "Invalid API key" }, id: null }));
+      return;
+    }
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
     const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : undefined;
@@ -96,6 +101,20 @@ test("returns a tool error when the remote is unreachable", async () => {
     const result = await client.callTool({ name: "check_tron_usdt_blacklist", arguments: { address: "T123" } });
     assert.equal(result.isError, true);
     assert.equal(JSON.parse(result.content[0].text).error.code, "REMOTE_UNAVAILABLE");
+  } finally {
+    await client.close();
+  }
+});
+
+test("maps a rejected API key to a non-retryable INVALID_API_KEY error", async () => {
+  const client = await connectProxy({ TRON_USDT_API_KEY: "bad" });
+  try {
+    const result = await client.callTool({ name: "check_tron_usdt_blacklist", arguments: { address: "T123" } });
+    assert.equal(result.isError, true);
+    const { error } = JSON.parse(result.content[0].text);
+    assert.equal(error.code, "INVALID_API_KEY");
+    assert.equal(error.retryable, false);
+    await assert.rejects(client.listTools(), /rejected TRON_USDT_API_KEY/);
   } finally {
     await client.close();
   }
