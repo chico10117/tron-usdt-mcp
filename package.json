@@ -1,0 +1,49 @@
+{
+  "name": "tron-usdt-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for TRON USDT risk: Tether blacklist check (free), sanctions screen and AML report (paid via API key or x402).",
+  "mcpName": "io.github.chico10117/tron-usdt-mcp",
+  "type": "module",
+  "bin": {
+    "tron-usdt-mcp": "index.js"
+  },
+  "files": [
+    "index.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "tron",
+    "usdt",
+    "trc20",
+    "aml",
+    "sanctions",
+    "ofac",
+    "blacklist",
+    "x402"
+  ],
+  "homepage": "https://usdt.chikocorp.com/api-docs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chico10117/tron-usdt-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/chico10117/tron-usdt-mcp/issues"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "zod": "^4.6.7"
+  }
+}

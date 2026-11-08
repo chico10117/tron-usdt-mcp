@@ -1,0 +1,50 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.chico10117/tron-usdt-mcp",
+  "title": "TRON USDT Risk Checker",
+  "description": "TRON USDT risk: free Tether blacklist check, paid sanctions screen and AML report.",
+  "repository": {
+    "url": "https://github.com/chico10117/tron-usdt-mcp",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "websiteUrl": "https://usdt.chikocorp.com/api-docs",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "tron-usdt-mcp",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "TRON_USDT_API_KEY",
+          "description": "Optional API key (screen:write scope) for the paid tools, 1 credit per call. Create one at https://usdt.chikocorp.com/settings.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "TRON_USDT_MCP_URL",
+          "description": "Remote MCP endpoint. Must be https (plain http is accepted only for localhost).",
+          "default": "https://usdt.chikocorp.com/mcp"
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://usdt.chikocorp.com/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Optional. Bearer API key with screen:write scope for the paid tools (1 credit per call). Omit to use the free tool or pay per call with x402.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
