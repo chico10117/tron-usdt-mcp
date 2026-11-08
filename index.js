@@ -45,6 +45,13 @@ function connectRemote() {
   return remotePromise;
 }
 
+/** Drops the cached remote client (closing it) so the next call reconnects. */
+function resetRemote() {
+  const stale = remotePromise;
+  remotePromise = null;
+  stale?.then((client) => client.close()).catch(() => undefined);
+}
+
 function toolError(code, message, retryable) {
   const body = { error: { code, message, retryable } };
   return { isError: true, content: [{ type: "text", text: JSON.stringify(body) }], structuredContent: body };
@@ -54,19 +61,22 @@ function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
-// The remote answers 403 for a wrong or under-scoped API key, and 401 is treated the same.
-function isAuthError(error) {
-  const code = error?.code;
-  return code === 401 || code === 403 || /\b(401|403)\b/.test(errorMessage(error));
-}
-
+// The SDK's StreamableHTTPError carries the HTTP status as `code`.
 function remoteFailure(error) {
-  if (isAuthError(error)) {
+  const status = typeof error?.code === "number" ? error.code : null;
+  if (status === 401 || status === 403) {
     return toolError(
       "INVALID_API_KEY",
       "The remote server rejected TRON_USDT_API_KEY (wrong key or missing screen:write scope). Fix it or unset it to use the free tool and x402.",
       false,
     );
+  }
+  if (status === 429) {
+    return toolError("RATE_LIMITED", "Too many requests to the remote server. Wait a minute and retry.", true);
+  }
+  if (status === 504) {
+    // A paid call that ran out of time is not charged, but don't auto-retry a paid call blindly.
+    return toolError("REMOTE_TIMEOUT", "The remote server timed out. Unfinished paid calls are not charged.", false);
   }
   return toolError("REMOTE_UNAVAILABLE", `Could not reach ${remoteUrl.origin}: ${errorMessage(error)}`, true);
 }
@@ -87,19 +97,20 @@ server.setRequestHandler(ListToolsRequestSchema, async (request) => {
     const remote = await connectRemote();
     return await remote.listTools(request.params);
   } catch (error) {
-    remotePromise = null;
+    resetRemote();
     const failure = remoteFailure(error);
     throw new McpError(ErrorCode.InternalError, failure.structuredContent.error.message);
   }
 });
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
   try {
     const remote = await connectRemote();
-    // Forward params as-is so _meta (x402 payments) reaches the remote server.
-    return await remote.callTool(request.params);
+    // Forward params as-is so _meta (x402 payments) reaches the remote server; pass
+    // the client's cancellation through. The remote never settles a call it did not finish.
+    return await remote.callTool(request.params, undefined, { signal: extra.signal });
   } catch (error) {
-    remotePromise = null;
+    resetRemote();
     return remoteFailure(error);
   }
 });

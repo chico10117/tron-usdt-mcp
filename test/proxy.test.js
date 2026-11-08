@@ -30,6 +30,11 @@ function buildRemote() {
 before(async () => {
   httpServer = createServer(async (req, res) => {
     seen.authorization.push(req.headers.authorization ?? null);
+    if (req.headers.authorization === "Bearer limited") {
+      res.writeHead(429, { "content-type": "application/json", "retry-after": "30" });
+      res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32000, message: "Too many requests" }, id: null }));
+      return;
+    }
     if (req.headers.authorization === "Bearer bad") {
       res.writeHead(403, { "content-type": "application/json" });
       res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32000, message: "Invalid API key" }, id: null }));
@@ -115,6 +120,16 @@ test("maps a rejected API key to a non-retryable INVALID_API_KEY error", async (
     assert.equal(error.code, "INVALID_API_KEY");
     assert.equal(error.retryable, false);
     await assert.rejects(client.listTools(), /rejected TRON_USDT_API_KEY/);
+  } finally {
+    await client.close();
+  }
+});
+
+test("maps a 429 from the remote to RATE_LIMITED", async () => {
+  const client = await connectProxy({ TRON_USDT_API_KEY: "limited" });
+  try {
+    const result = await client.callTool({ name: "check_tron_usdt_blacklist", arguments: { address: "T123" } });
+    assert.equal(JSON.parse(result.content[0].text).error.code, "RATE_LIMITED");
   } finally {
     await client.close();
   }
