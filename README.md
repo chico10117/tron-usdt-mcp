@@ -90,3 +90,6 @@ Results are informational screening built from public on-chain data and publishe
 ## License
 
 MIT
+
+
+[![TRON USDT Risk Checker MCP server](https://mcprush.com/badge/tron-usdt-risk-checker-mcp/card.svg)](https://mcprush.com/to/tron-usdt-risk-checker-mcp?ref=badge)
