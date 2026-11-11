@@ -87,6 +87,11 @@ The proxy writes nothing to disk, and it never logs addresses, API keys or payme
 
 Results are informational screening built from public on-chain data and published lists. They are not legal advice, not attribution, and not an automated accept/reject decision. Freeze status is a point-in-time read. See the [methodology](https://usdt.chikocorp.com/methodology).
 
+## Related
+
+- [USDT blacklist tracker](https://usdt.chikocorp.com/usdt-blacklist-tracker): live counts of Tether USDT-TRC20 freezes, unfreezes and burns on TRON, with a report for every month.
+- [usdt-trc20-blacklist-stats](https://github.com/chico10117/usdt-trc20-blacklist-stats): the same counts as open data (CSV and JSON, CC BY 4.0), updated daily.
+
 ## License
 
 MIT
