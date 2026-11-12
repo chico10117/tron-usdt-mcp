@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "tron-usdt-risk": {
+      "type": "http",
+      "url": "https://usdt.chikocorp.com/mcp"
+    }
+  }
+}

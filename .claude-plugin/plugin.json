@@ -1,0 +1,15 @@
+{
+  "name": "tron-usdt-risk",
+  "version": "1.0.1",
+  "description": "Check whether Tether froze a TRON address (free), then screen it against OFAC and abuse reports or build an AML report, paid per call with an API key or x402.",
+  "author": {
+    "name": "TRON Checker",
+    "url": "https://usdt.chikocorp.com"
+  },
+  "homepage": "https://usdt.chikocorp.com/mcp-server",
+  "repository": "https://github.com/chico10117/tron-usdt-mcp",
+  "license": "MIT",
+  "keywords": ["tron", "usdt", "trc20", "tether", "blacklist", "aml", "ofac", "sanctions", "x402", "mcp"],
+  "skills": ["./skills"],
+  "mcpServers": "./.mcp.json"
+}

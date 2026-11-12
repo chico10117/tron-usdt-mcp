@@ -1,0 +1,10 @@
+{
+  "name": "tron-usdt-risk",
+  "version": "1.0.1",
+  "description": "TRON USDT risk checks for Gemini CLI: free Tether blacklist check, paid sanctions screen and AML report.",
+  "mcpServers": {
+    "tron-usdt-risk": {
+      "httpUrl": "https://usdt.chikocorp.com/mcp"
+    }
+  }
+}
