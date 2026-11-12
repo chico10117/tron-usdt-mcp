@@ -1,5 +1,7 @@
 # tron-usdt-mcp
 
+[![M8ven Score](https://m8ven.ai/badge/mcp/chico10117/tron-usdt-mcp)](https://m8ven.ai/mcp/chico10117/tron-usdt-mcp?s=readme)
+
 MCP server for **TRON USDT (TRC20) address risk**. It checks whether Tether has blacklisted (frozen) an address, screens it against sanctions lists and abuse reports, and builds a full AML report.
 
 This package is a small stdio proxy. All the work happens on the hosted server at `https://usdt.chikocorp.com/mcp`, which you can also connect to directly over Streamable HTTP.
